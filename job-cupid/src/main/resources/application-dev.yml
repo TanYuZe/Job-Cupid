@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# DEV profile — all services expected on localhost via docker-compose.yml
+# Start local infrastructure: docker-compose up -d
+# Activate: -Dspring.profiles.active=dev  (or set SPRING_PROFILES_ACTIVE=dev)
+# ─────────────────────────────────────────────────────────────────────────────
+
+spring:
+  # ── DataSource ─────────────────────────────────────────────────────────────
+  datasource:
+    url: jdbc:postgresql://localhost:5432/jobcupid
+    username: jobcupid
+    password: jobcupid
+    hikari:
+      minimum-idle: 2            # Lower floor for local dev
+      maximum-pool-size: 10
+
+  # ── JPA ────────────────────────────────────────────────────────────────────
+  jpa:
+    hibernate:
+      ddl-auto: validate         # Flyway owns the schema; JPA only validates against it
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true         # Pretty-print SQL in dev logs
+
+  # ── Redis (Lettuce pool) ───────────────────────────────────────────────────
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:                  # No password in local dev
+      lettuce:
+        pool:
+          min-idle: 1
+          max-idle: 5
+          max-active: 10
+          max-wait: -1ms         # Block indefinitely if pool exhausted
+
+  # ── Kafka ──────────────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: localhost:9092
+
+  # ── Flyway ─────────────────────────────────────────────────────────────────
+  flyway:
+    enabled: true
+
+# ── JWT ────────────────────────────────────────────────────────────────────────
+# WARNING: Never use this value in production. Replace via prod profile env var.
+jwt:
+  secret: dev-only-secret-key-replace-in-prod-must-be-at-least-256-bits-long-xx
+
+# ── AWS / S3 ──────────────────────────────────────────────────────────────────
+aws:
+  region: ap-southeast-1
+  s3:
+    bucket-name: job-cupid-assets-dev
+
+# ── Server ────────────────────────────────────────────────────────────────────
+server:
+  port: 8080
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+logging:
+  level:
+    root: INFO
+    com.jobcupid: DEBUG          # Full debug output for application code
+    org.hibernate.SQL: DEBUG     # Show generated SQL
+    org.hibernate.orm.jdbc.bind: TRACE   # Show SQL bind parameters
+    org.springframework.security: DEBUG  # Show security filter decisions
+    org.apache.kafka: WARN       # Suppress verbose Kafka client logs

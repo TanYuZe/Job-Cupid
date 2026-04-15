@@ -1,0 +1,93 @@
+spring:
+  application:
+    name: job-cupid
+
+  # Stateless JWT API — disable Spring Session HTTP sessions entirely.
+  # RedisTemplate is still available for manual rate-limit and token blacklist operations.
+  session:
+    store-type: none
+
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      FAIL_ON_UNKNOWN_PROPERTIES: false
+
+  # ── JPA (shared across all profiles) ─────────────────────────────────────
+  jpa:
+    open-in-view: false          # Never hold DB connections across HTTP serialization
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+        format_sql: false        # Overridden to true in dev profile
+
+  # ── Hikari connection pool defaults ───────────────────────────────────────
+  datasource:
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 300000       # 5 min
+      connection-timeout: 20000  # 20 sec
+      max-lifetime: 1200000      # 20 min
+      pool-name: JobCupidHikariPool
+
+  # ── Flyway ────────────────────────────────────────────────────────────────
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    out-of-order: false
+    # enabled: true/false is set per profile
+
+  # ── Kafka shared producer / consumer config ────────────────────────────────
+  kafka:
+    consumer:
+      group-id: job-cupid-core
+      auto-offset-reset: earliest
+      enable-auto-commit: false  # Manual offset commit for at-least-once safety
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all                  # Leader + all in-sync replicas must acknowledge
+      retries: 3
+      properties:
+        enable.idempotence: true # Exactly-once producer semantics
+        max.in.flight.requests.per.connection: 5
+    listener:
+      ack-mode: manual_immediate # Consumer manually acks after successful processing
+
+# ── Server ──────────────────────────────────────────────────────────────────
+server:
+  port: 8080
+  shutdown: graceful             # Allow in-flight requests to complete on pod stop
+
+# ── Actuator ────────────────────────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      probes:
+        enabled: true            # /actuator/health/liveness + /readiness for K8s
+      show-details: when-authorized
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# ── Custom JWT properties (bound to JwtProperties @ConfigurationProperties) ─
+jwt:
+  access-token-ttl-seconds: 900       # 15 minutes
+  refresh-token-ttl-seconds: 604800   # 7 days
+
+# ── Custom AWS properties ────────────────────────────────────────────────────
+aws:
+  region: ap-southeast-1
+  s3:
+    bucket-name: job-cupid-assets     # Overridden per profile

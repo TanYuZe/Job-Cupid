@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./mvnw compile:*)",
+      "Bash(./mvnw clean:*)",
+      "Bash(./mvnw test-compile:*)",
+      "Bash(./mvnw package:*)",
+      "Bash(./mvnw test:*)",
+      "Bash(xargs -I{} jar tf {})",
+      "Bash(jar tf:*)",
+      "Bash(jar xf:*)",
+      "Bash(javap -p tools/jackson/databind/SerializationFeature.class)",
+      "Bash(javap -p tools/jackson/databind/DeserializationFeature.class)"
+    ]
+  }
+}
