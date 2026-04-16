@@ -8,8 +8,8 @@ spring:
   # ── DataSource ─────────────────────────────────────────────────────────────
   datasource:
     url: jdbc:postgresql://localhost:5432/jobcupid
-    username: jobcupid
-    password: jobcupid
+    username: postgres
+    password: 0491830
     hikari:
       minimum-idle: 2            # Lower floor for local dev
       maximum-pool-size: 10

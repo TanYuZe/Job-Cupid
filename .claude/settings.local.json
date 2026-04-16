@@ -10,7 +10,26 @@
       "Bash(jar tf:*)",
       "Bash(jar xf:*)",
       "Bash(javap -p tools/jackson/databind/SerializationFeature.class)",
-      "Bash(javap -p tools/jackson/databind/DeserializationFeature.class)"
+      "Bash(javap -p tools/jackson/databind/DeserializationFeature.class)",
+      "Bash(./mvnw spring-boot:run -Dspring-boot.run.profiles=dev)",
+      "Bash(docker info *)",
+      "Bash(docker-compose up *)",
+      "Bash(docker exec *)",
+      "Bash(./mvnw flyway:migrate \"-Dflyway.url=jdbc:postgresql://localhost:5432/jobcupid\" \"-Dflyway.user=jobcupid\" \"-Dflyway.password=jobcupid\" \"-Dflyway.locations=classpath:db/migration\")",
+      "Bash(grep -v \"^$\")",
+      "Bash(./mvnw flyway:info \"-Dflyway.url=jdbc:postgresql://localhost:5432/jobcupid\" \"-Dflyway.user=jobcupid\" \"-Dflyway.password=jobcupid\" \"-Dflyway.locations=classpath:db/migration\")",
+      "Bash(grep -v \"^\\\\[INFO\\\\] $\")",
+      "Bash(docker restart *)",
+      "Bash(docker port *)",
+      "Bash(./mvnw flyway:migrate -Dflyway.url=jdbc:postgresql://localhost:5432/jobcupid -Dflyway.user=postgres -Dflyway.password=0491830 -Dflyway.locations=classpath:db/migration -Dflyway.createSchemas=true)",
+      "Bash(PGPASSWORD=0491830 psql -h localhost -U postgres -c \"CREATE DATABASE jobcupid;\")",
+      "Bash(PGPASSWORD=0491830 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -c \"CREATE DATABASE jobcupid;\")",
+      "Bash(./mvnw flyway:migrate -Dflyway.url=jdbc:postgresql://localhost:5432/jobcupid -Dflyway.user=postgres -Dflyway.password=0491830 -Dflyway.locations=classpath:db/migration)",
+      "Bash(PGPASSWORD=0491830 \"/c/Program Files/PostgreSQL/18/bin/psql.exe\" -h localhost -U postgres -d jobcupid -c \"\\\\dt\")",
+      "Bash(grep -v \"\\\\$\")",
+      "Bash(grep \"\\\\.class$\")",
+      "Bash(xargs -I{} sh -c 'jar tf {} 2>/dev/null | grep -q \"DataJpaTest\" && echo {}')",
+      "Bash(grep \".jar$\")"
     ]
   }
 }

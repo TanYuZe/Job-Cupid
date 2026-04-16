@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity           // enables @PreAuthorize on service/controller methods
+@EnableMethodSecurity(securedEnabled = true)  // enables @PreAuthorize, @PostAuthorize, and @Secured
 @RequiredArgsConstructor
 public class SecurityConfig {
 
