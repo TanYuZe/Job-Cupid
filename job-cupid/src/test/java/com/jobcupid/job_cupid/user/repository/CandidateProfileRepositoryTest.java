@@ -14,10 +14,13 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.test.context.ActiveProfiles;
 
 import com.jobcupid.job_cupid.user.entity.CandidateProfile;
+import com.jobcupid.job_cupid.user.entity.User;
+import com.jobcupid.job_cupid.user.entity.UserRole;
 
 /**
  * Repository slice test — hits the real PostgreSQL (dev profile).
- * Requires: docker-compose up -d postgres (or native PostgreSQL on localhost:5432).
+ * Requires native PostgreSQL on localhost:5432 (or docker-compose up -d postgres).
+ * Each test creates its own User row to satisfy the FK constraint.
  */
 @DataJpaTest
 @ActiveProfiles("dev")
@@ -25,18 +28,35 @@ import com.jobcupid.job_cupid.user.entity.CandidateProfile;
 class CandidateProfileRepositoryTest {
 
     @Autowired
-    CandidateProfileRepository repository;
+    CandidateProfileRepository candidateProfileRepository;
+
+    @Autowired
+    UserRepository userRepository;
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private User savedUser() {
+        return userRepository.save(User.builder()
+                .email(UUID.randomUUID() + "@test.com")
+                .passwordHash("$2a$12$hashed")
+                .firstName("Test")
+                .lastName("User")
+                .role(UserRole.USER)
+                .build());
+    }
+
+    // ── Tests ─────────────────────────────────────────────────────────────────
 
     @Test
     void findByUserId_returnsProfile_whenExists() {
-        UUID userId = UUID.randomUUID();
-        CandidateProfile saved = repository.save(
+        User user = savedUser();
+        CandidateProfile saved = candidateProfileRepository.save(
                 CandidateProfile.builder()
-                        .userId(userId)
+                        .userId(user.getId())
                         .headline("Java Developer")
                         .build());
 
-        Optional<CandidateProfile> result = repository.findByUserId(userId);
+        Optional<CandidateProfile> result = candidateProfileRepository.findByUserId(user.getId());
 
         assertThat(result).isPresent();
         assertThat(result.get().getId()).isEqualTo(saved.getId());
@@ -45,22 +65,22 @@ class CandidateProfileRepositoryTest {
 
     @Test
     void findByUserId_returnsEmpty_whenNotExists() {
-        Optional<CandidateProfile> result = repository.findByUserId(UUID.randomUUID());
+        Optional<CandidateProfile> result = candidateProfileRepository.findByUserId(UUID.randomUUID());
 
         assertThat(result).isEmpty();
     }
 
     @Test
     void skills_areRetrievableAsList_afterSave() {
-        UUID userId = UUID.randomUUID();
+        User user = savedUser();
         List<String> skills = List.of("Java", "Spring Boot", "PostgreSQL");
 
-        repository.save(CandidateProfile.builder()
-                .userId(userId)
+        candidateProfileRepository.save(CandidateProfile.builder()
+                .userId(user.getId())
                 .skills(skills)
                 .build());
 
-        CandidateProfile loaded = repository.findByUserId(userId).orElseThrow();
+        CandidateProfile loaded = candidateProfileRepository.findByUserId(user.getId()).orElseThrow();
         assertThat(loaded.getSkills()).containsExactlyInAnyOrderElementsOf(skills);
     }
 }

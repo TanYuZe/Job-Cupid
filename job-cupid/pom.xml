@@ -116,6 +116,12 @@
 			<artifactId>spring-boot-starter-jdbc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- @WebMvcTest slice (Spring Boot 4 moved this to spring-boot-webmvc-test) -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<!-- Spring Security test helpers: @WithMockUser, SecurityMockMvcRequestPostProcessors -->
 		<dependency>
 			<groupId>org.springframework.security</groupId>

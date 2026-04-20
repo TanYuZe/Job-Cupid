@@ -11,13 +11,13 @@ import com.jobcupid.job_cupid.auth.config.JwtProperties;
 import com.jobcupid.job_cupid.auth.dto.AuthResponse;
 import com.jobcupid.job_cupid.auth.dto.LoginRequest;
 import com.jobcupid.job_cupid.auth.dto.RegisterRequest;
-import com.jobcupid.job_cupid.user.entity.User;
-import com.jobcupid.job_cupid.user.entity.UserRole;
 import com.jobcupid.job_cupid.shared.exception.BusinessRuleException;
 import com.jobcupid.job_cupid.shared.exception.DuplicateEmailException;
 import com.jobcupid.job_cupid.shared.exception.InvalidCredentialsException;
 import com.jobcupid.job_cupid.shared.exception.InvalidTokenException;
 import com.jobcupid.job_cupid.shared.exception.UserBannedException;
+import com.jobcupid.job_cupid.user.entity.User;
+import com.jobcupid.job_cupid.user.entity.UserRole;
 import com.jobcupid.job_cupid.user.repository.UserRepository;
 
 import io.jsonwebtoken.Claims;

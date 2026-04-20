@@ -1,37 +1,53 @@
 package com.jobcupid.job_cupid.user.controller;
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.Mapping;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.jobcupid.job_cupid.user.entity.User;
+import com.jobcupid.job_cupid.shared.security.UserPrincipal;
+import com.jobcupid.job_cupid.user.dto.UpdateProfileRequest;
 import com.jobcupid.job_cupid.user.service.UserService;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-/**
- *
- * @author yuze1
- */
-@RequestMapping("/api/v1/User")
 @RestController
+@RequestMapping("/api/v1/users")
 @RequiredArgsConstructor
 public class UserController {
 
     private final UserService userService;
 
-    @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user){
-        User response = userService.createUser(user);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    /**
+     * GET /api/v1/users/me
+     * Returns CandidateProfileResponse for USER role, EmployerProfileResponse for EMPLOYER role.
+     */
+    @GetMapping("/me")
+    public ResponseEntity<?> getMe(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(userService.getCurrentUser(principal.getId()));
     }
-    
+
+    /**
+     * PUT /api/v1/users/me
+     * PATCH semantics: only non-null fields are applied.
+     * email, role, and isPremium cannot be changed via this endpoint.
+     */
+    @PutMapping("/me")
+    public ResponseEntity<?> updateMe(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody UpdateProfileRequest request) {
+        return ResponseEntity.ok(userService.updateProfile(principal.getId(), request));
+    }
+
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal UserPrincipal principal) {
+        userService.softDeleteUser(principal.getId());
+        return ResponseEntity.noContent().build();
+    }
 }
