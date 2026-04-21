@@ -4,12 +4,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jobcupid.job_cupid.shared.security.UserPrincipal;
+import com.jobcupid.job_cupid.user.dto.PhotoConfirmRequest;
+import com.jobcupid.job_cupid.user.dto.PhotoUploadRequest;
 import com.jobcupid.job_cupid.user.dto.UpdateProfileRequest;
 import com.jobcupid.job_cupid.user.service.UserService;
 
@@ -49,5 +52,19 @@ public class UserController {
     public ResponseEntity<Void> deleteMe(@AuthenticationPrincipal UserPrincipal principal) {
         userService.softDeleteUser(principal.getId());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/me/photo")
+    public ResponseEntity<?> requestPhotoUpload(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody PhotoUploadRequest request) {
+        return ResponseEntity.ok(userService.generatePhotoUploadUrl(principal.getId(), request.getContentType()));
+    }
+
+    @PutMapping("/me/photo/confirm")
+    public ResponseEntity<?> confirmPhotoUpload(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Valid @RequestBody PhotoConfirmRequest request) {
+        return ResponseEntity.ok(userService.confirmPhoto(principal.getId(), request));
     }
 }

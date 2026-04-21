@@ -24,6 +24,7 @@ import com.jobcupid.job_cupid.user.entity.CandidateProfile;
 import com.jobcupid.job_cupid.user.entity.EmployerProfile;
 import com.jobcupid.job_cupid.user.entity.User;
 import com.jobcupid.job_cupid.user.entity.UserRole;
+import com.jobcupid.job_cupid.shared.service.S3Service;
 import com.jobcupid.job_cupid.user.repository.CandidateProfileRepository;
 import com.jobcupid.job_cupid.user.repository.EmployerProfileRepository;
 import com.jobcupid.job_cupid.user.repository.UserRepository;
@@ -36,6 +37,7 @@ class UserServiceTest {
     @Mock EmployerProfileRepository  employerProfileRepository;
     @Mock CandidateProfileService    candidateProfileService;
     @Mock EmployerProfileService     employerProfileService;
+    @Mock S3Service                  s3Service;
 
     @InjectMocks UserService userService;
 

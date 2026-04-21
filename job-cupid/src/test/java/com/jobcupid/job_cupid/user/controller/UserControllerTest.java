@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -30,6 +31,9 @@ import com.jobcupid.job_cupid.shared.security.JwtAuthenticationFilter;
 import com.jobcupid.job_cupid.shared.security.UserPrincipal;
 import com.jobcupid.job_cupid.user.dto.CandidateProfileResponse;
 import com.jobcupid.job_cupid.user.dto.EmployerProfileResponse;
+import com.jobcupid.job_cupid.user.dto.PhotoConfirmRequest;
+import com.jobcupid.job_cupid.user.dto.PhotoUploadRequest;
+import com.jobcupid.job_cupid.user.dto.PhotoUploadResponse;
 import com.jobcupid.job_cupid.user.dto.UpdateProfileRequest;
 import com.jobcupid.job_cupid.user.entity.User;
 import com.jobcupid.job_cupid.user.entity.UserRole;
@@ -145,5 +149,51 @@ class UserControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(userService).softDeleteUser(candidateId);
+    }
+
+    @Test
+    void requestPhotoUpload_returns200_withPresignedUrl() throws Exception {
+        PhotoUploadRequest request = new PhotoUploadRequest();
+        request.setContentType("image/jpeg");
+
+        PhotoUploadResponse response = PhotoUploadResponse.builder()
+                .presignedUrl("https://test-bucket.s3.amazonaws.com/photos/key?sig=abc")
+                .publicUrl("https://test-bucket.s3.amazonaws.com/photos/key")
+                .expiresIn(300)
+                .build();
+
+        when(userService.generatePhotoUploadUrl(eq(candidateId), eq("image/jpeg"))).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/users/me/photo")
+                        .with(SecurityMockMvcRequestPostProcessors.authentication(candidateAuth))
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.presignedUrl").isNotEmpty())
+                .andExpect(jsonPath("$.publicUrl").isNotEmpty())
+                .andExpect(jsonPath("$.expiresIn").value(300));
+    }
+
+    @Test
+    void confirmPhotoUpload_returns200_withUpdatedPhotoUrl() throws Exception {
+        PhotoConfirmRequest request = new PhotoConfirmRequest();
+        request.setPublicUrl("https://test-bucket.s3.amazonaws.com/photos/key");
+
+        CandidateProfileResponse response = CandidateProfileResponse.builder()
+                .userId(candidateId).email("alice@example.com")
+                .role(UserRole.USER)
+                .photoUrl("https://test-bucket.s3.amazonaws.com/photos/key")
+                .build();
+
+        when(userService.confirmPhoto(eq(candidateId), any(PhotoConfirmRequest.class))).thenReturn(response);
+
+        mockMvc.perform(put("/api/v1/users/me/photo/confirm")
+                        .with(SecurityMockMvcRequestPostProcessors.authentication(candidateAuth))
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.photoUrl").value("https://test-bucket.s3.amazonaws.com/photos/key"));
     }
 }

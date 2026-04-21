@@ -1,5 +1,7 @@
 package com.jobcupid.job_cupid.user.service;
 
+import java.net.URL;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -7,6 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jobcupid.job_cupid.shared.exception.ResourceNotFoundException;
+import com.jobcupid.job_cupid.shared.service.S3Service;
+import com.jobcupid.job_cupid.user.dto.PhotoConfirmRequest;
+import com.jobcupid.job_cupid.user.dto.PhotoUploadResponse;
 import com.jobcupid.job_cupid.user.dto.CandidateProfileResponse;
 import com.jobcupid.job_cupid.user.dto.EmployerProfileResponse;
 import com.jobcupid.job_cupid.user.dto.UpdateCandidateProfileRequest;
@@ -31,6 +36,7 @@ public class UserService {
     private final EmployerProfileRepository   employerProfileRepository;
     private final CandidateProfileService     candidateProfileService;
     private final EmployerProfileService      employerProfileService;
+    private final S3Service                   s3Service;
 
     /**
      * Returns a role-specific response combining User + Profile data.
@@ -65,6 +71,33 @@ public class UserService {
         }
 
         CandidateProfile profile = candidateProfileService.createOrUpdate(userId, toCandidateRequest(request));
+        return CandidateProfileResponse.from(user, profile);
+    }
+
+    public PhotoUploadResponse generatePhotoUploadUrl(UUID userId, String contentType) {
+        String key = "photos/" + userId + "/" + UUID.randomUUID();
+        Duration expiry = Duration.ofMinutes(5);
+        URL presignedUrl = s3Service.generatePresignedPutUrl(key, contentType, expiry);
+        String publicUrl = s3Service.buildPublicUrl(key);
+        return PhotoUploadResponse.builder()
+                .presignedUrl(presignedUrl.toString())
+                .publicUrl(publicUrl)
+                .expiresIn(expiry.getSeconds())
+                .build();
+    }
+
+    @Transactional
+    public Object confirmPhoto(UUID userId, PhotoConfirmRequest request) {
+        User user = loadUser(userId);
+        user.setPhotoUrl(request.getPublicUrl());
+        userRepository.save(user);
+
+        if (user.getRole() == UserRole.EMPLOYER) {
+            EmployerProfile profile = employerProfileRepository.findByUserId(userId).orElse(null);
+            return EmployerProfileResponse.from(user, profile);
+        }
+
+        CandidateProfile profile = candidateProfileRepository.findByUserId(userId).orElse(null);
         return CandidateProfileResponse.from(user, profile);
     }
 
