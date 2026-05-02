@@ -7,7 +7,7 @@
 spring:
   # ── DataSource ─────────────────────────────────────────────────────────────
   datasource:
-    url: jdbc:postgresql://localhost:5432/jobcupid
+    url: jdbc:postgresql://localhost:5433/jobcupid
     username: postgres
     password: 0491830
     hikari:

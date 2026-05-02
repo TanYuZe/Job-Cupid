@@ -1787,7 +1787,7 @@ Create K8s manifests for production deployment: Deployment, Service, HPA, Config
 
 ---
 
-## Summary
+## Summary — Backend
 
 | Epic | Tasks | Total Complexity |
 |------|-------|-----------------|
@@ -1803,8 +1803,571 @@ Create K8s manifests for production deployment: Deployment, Service, HPA, Config
 | 10. Admin Module | 2 tasks | M S |
 | 11. Infrastructure | 4 tasks | S S S M |
 
-**Total tasks: 44**
+**Total backend tasks: 44**
 **L tasks (most complex, tackle carefully): 4.3 (Job Feed), 7.2 (Match Gate), 9.2 (Stripe)**
+
+---
+
+## Frontend Epics
+
+> **Stack:** React 19, TypeScript, Tailwind CSS, Vite, React Router v7, Axios.
+> **Working directory:** `Frontend/`
+> **Existing pages:** `LoginPage`, `RegisterPage`, `FeedPage`, `CreateJobPage`, `EditJobPage`, `MyJobsPage`
+> **Existing components:** `JobCard`, `Navbar`
+> **Existing context:** `AuthContext`
+>
+> Complete frontend epics after the backend epic they depend on is done.
+> Each task maps to one or more page/component files under `Frontend/src/`.
+
+---
+
+## Epic F1 — Frontend Foundation
+
+Establish the router structure, shared UI primitives, and API client layer so every subsequent page has a solid base.
+
+---
+
+### Task F1.1 — Router, Layout & Auth Guards
+
+**Description**
+Wire up React Router v7 with a root layout, protected routes, and role-based route guards. Define all routes upfront so pages can be scaffolded in any order.
+
+**Files to create/update:**
+- `src/App.tsx` — define all routes using `createBrowserRouter`; wrap protected routes with `<RequireAuth>` and `<RequireRole>`
+- `src/components/layout/RootLayout.tsx` — top-level shell with `<Navbar>` and `<Outlet>`
+- `src/components/layout/AuthLayout.tsx` — centered card layout for auth pages (login/register)
+- `src/components/guards/RequireAuth.tsx` — redirect to `/login` if no token in `AuthContext`
+- `src/components/guards/RequireRole.tsx` — redirect to `/` if user's role doesn't match allowed roles prop
+
+**Route map:**
+```
+/                    → LandingPage (public)
+/login               → LoginPage (guest only)
+/register            → RegisterPage (guest only)
+/feed                → FeedPage (CANDIDATE)
+/jobs/:id            → JobDetailPage (authenticated)
+/applications        → MyApplicationsPage (CANDIDATE)
+/matches             → MatchesPage (authenticated)
+/profile             → ProfilePage (authenticated)
+/notifications       → NotificationsPage (authenticated)
+/upgrade             → UpgradePage (authenticated)
+/employer/jobs       → MyJobsPage (EMPLOYER)
+/employer/jobs/new   → CreateJobPage (EMPLOYER)
+/employer/jobs/:id/edit → EditJobPage (EMPLOYER)
+/employer/applicants/:jobId → ApplicantsPage (EMPLOYER)
+/employer/swipe/:jobId → EmployerSwipePage (EMPLOYER)
+/employer/likes/:jobId → JobLikersPage (EMPLOYER premium)
+/admin/users         → AdminUsersPage (ADMIN)
+/admin/jobs          → AdminJobsPage (ADMIN)
+/plans               → PlansPage (public)
+```
+
+**Acceptance Criteria**
+- Visiting `/feed` without a token redirects to `/login`
+- Visiting `/employer/jobs` as a CANDIDATE redirects to `/`
+- All route paths are defined; 404 renders a `NotFoundPage`
+
+**Complexity:** S
+
+---
+
+### Task F1.2 — Shared UI Components
+
+**Description**
+Build a small but complete set of reusable primitives used across all pages. No third-party component library — Tailwind only.
+
+**Files to create:**
+- `src/components/ui/Button.tsx` — variants: `primary`, `secondary`, `danger`, `ghost`; sizes: `sm`, `md`, `lg`; loading spinner state
+- `src/components/ui/Input.tsx` — with label, error message, and helper text props
+- `src/components/ui/Select.tsx` — controlled select with label and error
+- `src/components/ui/Textarea.tsx`
+- `src/components/ui/Badge.tsx` — status badge with color variants (green/yellow/red/gray)
+- `src/components/ui/Modal.tsx` — accessible modal with overlay, title, close button, and `children`
+- `src/components/ui/Spinner.tsx` — centered loading spinner
+- `src/components/ui/EmptyState.tsx` — icon + heading + subtext for empty lists
+- `src/components/ui/ErrorBanner.tsx` — dismissable error message bar
+- `src/components/ui/Avatar.tsx` — user photo with initials fallback
+
+**Acceptance Criteria**
+- All components accept `className` for Tailwind overrides
+- `Button` shows spinner and is disabled when `loading={true}`
+- `Modal` traps focus and closes on Escape key
+
+**Complexity:** S
+
+---
+
+### Task F1.3 — API Client Layer
+
+**Description**
+Extend the existing `api/client.ts` Axios instance and create typed API modules for all backend endpoints. Centralise token injection and refresh logic.
+
+**Files to create/update:**
+- `src/api/client.ts` — add request interceptor to attach `Authorization: Bearer <token>`; add response interceptor to call `POST /auth/refresh` on 401 and retry; redirect to `/login` on second 401
+- `src/api/auth.ts` — `register()`, `login()`, `logout()`, `refresh()` (already partially exists; standardise return types)
+- `src/api/users.ts` — `getMe()`, `updateProfile()`, `uploadPhoto()`, `confirmPhoto()`, `deleteAccount()`
+- `src/api/jobs.ts` — `getFeed()`, `getJob()`, `getMyJobs()`, `createJob()`, `updateJob()`, `closeJob()` (already partially exists)
+- `src/api/swipes.ts` — `candidateSwipe()`, `employerSwipe()`, `getJobLikers()`
+- `src/api/applications.ts` — `apply()`, `getMyApplications()`, `getJobApplications()`, `updateApplicationStatus()`
+- `src/api/matches.ts` — `getMatches()`, `getMatch()`
+- `src/api/notifications.ts` — `getNotifications()`, `markRead()`, `markAllRead()`
+- `src/api/subscriptions.ts` — `getPlans()`, `getMySubscription()`, `createCheckout()`
+- `src/api/admin.ts` — `listUsers()`, `banUser()`, `changeRole()`, `forceCloseJob()`
+- `src/types/api.ts` — shared TypeScript interfaces mirroring backend DTOs (`JobResponse`, `AuthResponse`, `MatchResponse`, etc.)
+
+**Acceptance Criteria**
+- All API functions are typed (no `any`)
+- Token is automatically injected on every authenticated request
+- Silent refresh happens transparently on 401 without user seeing a login redirect
+- A failed refresh (invalid refresh token) redirects to `/login` and clears auth state
+
+**Complexity:** M
+
+---
+
+## Epic F2 — Authentication Pages
+
+Depends on: Epic 2 (backend auth endpoints)
+
+---
+
+### Task F2.1 — Login Page (enhance existing)
+
+**Description**
+Enhance the existing `LoginPage.tsx`. Add proper form validation, error display, and loading state. Redirect based on role after login.
+
+**Files to update:**
+- `src/pages/LoginPage.tsx` — controlled form using `Input` + `Button` components; call `api/auth.login()`; on success store tokens in `AuthContext` and redirect: CANDIDATE → `/feed`, EMPLOYER → `/employer/jobs`, ADMIN → `/admin/users`; on error show `ErrorBanner`
+- `src/contexts/AuthContext.tsx` — ensure `login(tokens, user)` stores `accessToken` + user role; expose `logout()` that calls API and clears state
+
+**Acceptance Criteria**
+- Empty email or password shows inline validation error before API call
+- Wrong credentials shows error banner with backend message
+- Successful login redirects to correct role-based landing page
+- "Don't have an account? Register" link navigates to `/register`
+
+**Complexity:** S
+
+---
+
+### Task F2.2 — Register Page (enhance existing)
+
+**Description**
+Enhance the existing `RegisterPage.tsx`. Add role selection (Candidate / Employer) and all required fields with validation.
+
+**Files to update:**
+- `src/pages/RegisterPage.tsx` — add `firstName`, `lastName`, role toggle (two radio/card buttons: "I'm looking for a job" vs "I'm hiring"); validate password ≥ 8 chars; call `api/auth.register()`; on 409 show "Email already in use"; on success redirect same as login
+
+**Acceptance Criteria**
+- Role selector is clearly visible and defaults to CANDIDATE
+- All validation errors shown inline before API call
+- 409 duplicate-email error shown as banner
+- Successful registration redirects to role-based landing page
+
+**Complexity:** S
+
+---
+
+## Epic F3 — Profile Management
+
+Depends on: Epic 3 (backend profile endpoints)
+
+---
+
+### Task F3.1 — Candidate Profile Page
+
+**Description**
+Page where a candidate views and edits their own profile. Also shown during onboarding after first register.
+
+**Files to create:**
+- `src/pages/ProfilePage.tsx` — renders `<CandidateProfileForm>` or `<EmployerProfileForm>` based on role; fetches `GET /api/v1/users/me` on mount; shows `Spinner` while loading
+- `src/components/profile/CandidateProfileForm.tsx` — fields: headline, skills (tag input), years of experience, desired salary range (min/max), preferred remote (toggle), preferred location, open to work (toggle); submit calls `PUT /api/v1/users/me`; success toast
+- `src/components/profile/SkillTagInput.tsx` — text input that adds skills as removable tag badges
+
+**Acceptance Criteria**
+- Form pre-fills with current profile data
+- Skills display as removable tags; pressing Enter adds a tag
+- Salary min cannot exceed salary max (validated client-side)
+- Success shows a dismissable "Profile updated" banner
+
+**Complexity:** M
+
+---
+
+### Task F3.2 — Employer Profile Page
+
+**Description**
+Employer edits their company profile.
+
+**Files to create:**
+- `src/components/profile/EmployerProfileForm.tsx` — fields: company name (required), description, website, company size (select), industry (select), founded year; submit calls `PUT /api/v1/users/me`
+
+**Acceptance Criteria**
+- Company name shows validation error if empty on submit
+- All fields pre-filled from `GET /api/v1/users/me`
+- Success shows "Profile updated" banner
+
+**Complexity:** S
+
+---
+
+### Task F3.3 — Profile Photo Upload
+
+**Description**
+Photo upload section on the profile page using the S3 pre-signed URL flow.
+
+**Files to create:**
+- `src/components/profile/PhotoUpload.tsx` — shows current `<Avatar>`; click opens file picker (accept image/jpeg, image/png); on select: call `POST /api/v1/users/me/photo` to get presigned URL; PUT file directly to the URL (using plain `fetch`, not Axios to avoid injecting auth header); then call `PUT /api/v1/users/me/photo/confirm`; update avatar on success
+- Add `PhotoUpload` to both `CandidateProfileForm` and `EmployerProfileForm`
+
+**Acceptance Criteria**
+- File picker restricts to jpg/png
+- Shows upload progress (indeterminate spinner)
+- New photo appears in `<Avatar>` immediately after confirm
+- File over 5 MB shows client-side error without making API call
+
+**Complexity:** M
+
+---
+
+## Epic F4 — Candidate Experience
+
+Depends on: Epics 4, 5, 6, 7 (backend)
+
+---
+
+### Task F4.1 — Job Feed / Swipe Page (enhance existing)
+
+**Description**
+The core candidate experience. Enhance the existing `FeedPage.tsx` with a Tinder-style card swipe UI, filter bar, and infinite scroll via cursor pagination.
+
+**Files to update/create:**
+- `src/pages/FeedPage.tsx` — fetch `GET /api/v1/jobs` with filters; render job cards in a stack; handle LIKE/PASS swipe actions; load next page when nearing the end of the list using `nextCursor`
+- `src/components/jobs/SwipeCard.tsx` — single job card with slide-left (PASS) and slide-right (LIKE) CSS animation; shows company, title, location, salary range, skills, remote badge; two action buttons (✗ PASS, ♥ LIKE)
+- `src/components/jobs/FeedFilters.tsx` — collapsible filter panel: category, location, remote toggle, salary min/max, keyword search; submit triggers new feed fetch with filters
+- `src/components/jobs/SwipeLimitBanner.tsx` — shown on 429 response; "You've used all your daily swipes — upgrade to Premium" with link to `/upgrade`
+
+**Acceptance Criteria**
+- Swiping LIKE on a job calls `POST /api/v1/swipes/jobs/{jobId}` with `action=LIKE`
+- Swiping PASS calls the same endpoint with `action=PASS`
+- Free user's 21st swipe shows `SwipeLimitBanner` instead of erroring
+- Applying filters refetches the feed from the first page
+- `nextCursor` from response is used to load more cards; "No more jobs" shown when `hasMore=false`
+
+**Complexity:** L
+
+---
+
+### Task F4.2 — Job Detail Page
+
+**Description**
+Full job detail view. Accessible from the feed card or from "My Applications".
+
+**Files to create:**
+- `src/pages/JobDetailPage.tsx` — fetches `GET /api/v1/jobs/:id`; shows full description, skills, salary, employment type, company info; shows an "Apply" button if the candidate has previously LIKEd the job and hasn't applied yet; shows "Applied" badge if already applied
+
+**Acceptance Criteria**
+- 404 from API renders a `NotFoundPage` inline message
+- Apply button calls `POST /api/v1/applications/jobs/{jobId}`; 422 ("must swipe LIKE first") shows a helpful message; 409 ("already applied") shows "Already applied" badge
+- Back button returns to previous page
+
+**Complexity:** S
+
+---
+
+### Task F4.3 — My Applications Page
+
+**Description**
+Candidate views all their submitted applications with status tracking.
+
+**Files to create:**
+- `src/pages/MyApplicationsPage.tsx` — fetches `GET /api/v1/applications/my` with pagination; renders `<ApplicationCard>` list; `EmptyState` when no applications
+- `src/components/applications/ApplicationCard.tsx` — shows job title, company, `applied_at` date, `status` as a `Badge` (color-coded: green=ACCEPTED, red=REJECTED, blue=SHORTLISTED, gray=PENDING/REVIEWED); link to job detail
+
+**Acceptance Criteria**
+- Status badge color matches status value
+- List is paginated with "Load more" button
+- Clicking a card opens `JobDetailPage`
+
+**Complexity:** S
+
+---
+
+### Task F4.4 — Matches Page (Candidate)
+
+**Description**
+Candidate views all their matches — jobs they applied to where the employer also liked them back.
+
+**Files to create:**
+- `src/pages/MatchesPage.tsx` — fetches `GET /api/v1/matches`; renders `<MatchCard>` list; `EmptyState` with "Keep swiping to find your match!" if empty
+- `src/components/matches/MatchCard.tsx` — shows job title, company logo, `matched_at` date; a "View Job" link
+
+**Acceptance Criteria**
+- Matches sorted newest first
+- Empty state shown when list is empty
+- Shared route used by both CANDIDATE and EMPLOYER (employer view handled in F5.6)
+
+**Complexity:** S
+
+---
+
+## Epic F5 — Employer Experience
+
+Depends on: Epics 4, 5, 6, 7 (backend)
+
+---
+
+### Task F5.1 — Create & Edit Job Pages (enhance existing)
+
+**Description**
+Enhance existing `CreateJobPage.tsx` and `EditJobPage.tsx` with full field coverage, validation, and proper API integration.
+
+**Files to update:**
+- `src/pages/CreateJobPage.tsx` — full form: title (required), description (required, textarea), category (select), location, remote toggle, salary min/max + currency select, employment type (select), experience level (select), required skills (`SkillTagInput`); submit calls `POST /api/v1/jobs`; redirect to `/employer/jobs` on 201
+- `src/pages/EditJobPage.tsx` — same form pre-filled from `GET /api/v1/jobs/:id`; submit calls `PUT /api/v1/jobs/:id`; includes "Close Job" danger button that calls `DELETE /api/v1/jobs/:id` with a confirmation modal
+
+**Acceptance Criteria**
+- All required fields validated client-side before API call
+- "Close Job" button shows a `Modal` confirmation before calling DELETE
+- Successfully closing a job redirects to `/employer/jobs` with a toast "Job closed"
+
+**Complexity:** M
+
+---
+
+### Task F5.2 — My Jobs Page (enhance existing)
+
+**Description**
+Enhance existing `MyJobsPage.tsx` with status badges, applicant counts, and navigation to applicants.
+
+**Files to update:**
+- `src/pages/MyJobsPage.tsx` — render `<JobListingCard>` list; show job status `Badge`, `application_count`, created date; action buttons: "Edit", "View Applicants", "Close"
+- `src/components/jobs/JobListingCard.tsx` — employer-facing card showing key stats
+
+**Acceptance Criteria**
+- Status badge correctly color-coded (green=ACTIVE, yellow=PAUSED, gray=CLOSED)
+- "View Applicants" links to `/employer/applicants/{jobId}`
+- Closed jobs appear greyed out but still in the list
+
+**Complexity:** S
+
+---
+
+### Task F5.3 — Applicants View Page
+
+**Description**
+Employer views all candidates who applied to a specific job, with their status and a link to swipe on them.
+
+**Files to create:**
+- `src/pages/ApplicantsPage.tsx` — fetches `GET /api/v1/applications/jobs/:jobId` with pagination; renders `<ApplicantRow>` list; `EmptyState` if no applicants
+- `src/components/applications/ApplicantRow.tsx` — shows candidate name/avatar, application date, cover letter preview, current status `Badge`; action buttons: "Swipe" (links to employer swipe page), status dropdown to update directly
+
+**Acceptance Criteria**
+- Status dropdown calls `PUT /api/v1/applications/{id}/status`; optimistically updates UI
+- "Swipe" button is only shown if employer hasn't yet swiped LIKE/REJECT on this applicant
+- Pagination with "Load more"
+
+**Complexity:** M
+
+---
+
+### Task F5.4 — Employer Swipe Page
+
+**Description**
+Tinder-style page for employers to LIKE or REJECT candidates who applied to their job.
+
+**Files to create:**
+- `src/pages/EmployerSwipePage.tsx` — fetches applicants for a job; renders `<CandidateSwipeCard>` stack; LIKE/REJECT actions call `POST /api/v1/swipes/applicants/{applicationId}`; moves to next card on action
+- `src/components/swipe/CandidateSwipeCard.tsx` — shows candidate photo, name, headline, skills, years of experience, open-to-work status; two buttons: ✗ REJECT, ♥ LIKE
+
+**Acceptance Criteria**
+- After swiping all applicants, shows "All caught up!" empty state
+- LIKE swipe triggers the backend match gate (no special frontend handling needed — backend handles it)
+- Swipe animation mirrors the candidate feed card animation
+
+**Complexity:** M
+
+---
+
+### Task F5.5 — Who Liked My Job Page (Premium)
+
+**Description**
+Premium employer feature: see which candidates swiped LIKE on their job posting.
+
+**Files to create:**
+- `src/pages/JobLikersPage.tsx` — fetches `GET /api/v1/swipes/jobs/:jobId/likes`; on 403 renders `<PremiumGate>` component; otherwise renders list of candidate summaries
+- `src/components/premium/PremiumGate.tsx` — full-page blur overlay with "This is a Premium feature" message and "Upgrade Now" button linking to `/upgrade`
+
+**Acceptance Criteria**
+- Non-premium employer sees `PremiumGate` overlay instead of the liker list
+- Premium employer sees candidate cards with name, headline, skills
+- Empty state shown when nobody has liked yet (not a 404)
+
+**Complexity:** S
+
+---
+
+### Task F5.6 — Matches Page (Employer View)
+
+**Description**
+Employer sees matches — candidates they LIKEd who also applied and the candidate swiped LIKE.
+
+**Files to update:**
+- `src/pages/MatchesPage.tsx` — detect role from `AuthContext`; if EMPLOYER, `<MatchCard>` shows candidate name, job title, matched date; if CANDIDATE, shows company name and job title
+
+**Acceptance Criteria**
+- Same page component handles both roles with role-conditional rendering
+- "View Applicant" links to the candidate's application on `ApplicantsPage`
+
+**Complexity:** S
+
+---
+
+## Epic F6 — Shared Features
+
+Depends on: Epics 8 and 9 (backend)
+
+---
+
+### Task F6.1 — Notifications Page & Bell Indicator
+
+**Description**
+In-app notification center with real-time unread count in the navbar.
+
+**Files to create/update:**
+- `src/pages/NotificationsPage.tsx` — fetches `GET /api/v1/notifications` with pagination; renders `<NotificationItem>` list; "Mark all as read" button calls `PUT /api/v1/notifications/read-all`
+- `src/components/notifications/NotificationItem.tsx` — shows title, body, time ago, unread dot; clicking calls `PUT /api/v1/notifications/{id}/read` and marks it read in local state
+- `src/components/Navbar.tsx` — add bell icon with unread count badge; fetch `countByUserIdAndIsReadFalse` via `GET /api/v1/notifications?page=0&size=1` and read `unreadCount` from response; poll every 60 seconds
+
+**Acceptance Criteria**
+- Unread count badge shows on bell icon; disappears when all read
+- Clicking a notification marks it read and the unread dot disappears
+- "Mark all as read" sets all unread counts to 0 instantly (optimistic update)
+- Notifications page paginates with "Load more"
+
+**Complexity:** M
+
+---
+
+### Task F6.2 — Subscription Plans & Upgrade Page
+
+**Description**
+Public pricing page and the authenticated upgrade checkout flow.
+
+**Files to create:**
+- `src/pages/PlansPage.tsx` — fetches `GET /api/v1/subscriptions/plans`; renders `<PlanCard>` for each plan; visible to all users including unauthenticated
+- `src/pages/UpgradePage.tsx` — authenticated page that shows current subscription status via `GET /api/v1/subscriptions/me`; if already premium shows "You're Premium" with renewal date; if not, shows plan cards with "Subscribe" buttons
+- `src/components/subscription/PlanCard.tsx` — shows plan name, price, billing period, feature bullet list; "Subscribe" / "Current Plan" button
+- Subscribe button calls `POST /api/v1/subscriptions/checkout`; redirect to returned `checkoutUrl` (Stripe hosted page)
+
+**Acceptance Criteria**
+- Unauthenticated users can view `/plans` without being redirected
+- Active premium users see their plan and period end date on `/upgrade`
+- Clicking "Subscribe" opens Stripe checkout in the same tab
+- After Stripe redirects back, page re-fetches subscription status and shows "You're Premium"
+
+**Complexity:** M
+
+---
+
+## Epic F7 — Admin Dashboard
+
+Depends on: Epic 10 (backend admin endpoints)
+
+---
+
+### Task F7.1 — Admin User Management Page
+
+**Description**
+Admin can search, view, ban, and change roles for all users.
+
+**Files to create:**
+- `src/pages/AdminUsersPage.tsx` — search bar calls `GET /api/v1/admin/users?search=`; renders `<AdminUserRow>` table; pagination
+- `src/components/admin/AdminUserRow.tsx` — shows email, role badge, premium badge, banned status; "Ban" button opens `<BanModal>`; role dropdown calls `PUT /api/v1/admin/users/{id}/role`
+- `src/components/admin/BanModal.tsx` — reason text input + confirm button; calls `PUT /api/v1/admin/users/{id}/ban`
+
+**Acceptance Criteria**
+- Search debounced by 300ms before API call
+- Banned users shown with red "Banned" badge
+- Admin cannot ban themselves (ban button disabled for own row)
+- Role cannot be set to ADMIN via the dropdown (option not present)
+
+**Complexity:** M
+
+---
+
+### Task F7.2 — Admin Job Moderation Page
+
+**Description**
+Admin can view all jobs and force-close any of them.
+
+**Files to create:**
+- `src/pages/AdminJobsPage.tsx` — fetches all jobs (employer filter optional); renders table with title, employer email, status badge, application count; "Force Close" button per row
+- Force close shows confirmation modal then calls `DELETE /api/v1/admin/jobs/{id}`; row is updated to ARCHIVED on success
+
+**Acceptance Criteria**
+- Table paginated
+- Force close requires confirmation modal
+- Archived jobs shown greyed out; force close button hidden for already-archived jobs
+
+**Complexity:** S
+
+---
+
+## Epic F8 — Public Pages
+
+---
+
+### Task F8.1 — Landing Page
+
+**Description**
+Public marketing landing page. First page unauthenticated visitors see.
+
+**Files to create:**
+- `src/pages/LandingPage.tsx` — hero section ("Find your perfect job match") with CTA buttons: "Find Jobs" (→ `/register?role=candidate`) and "Hire Talent" (→ `/register?role=employer`); feature highlights section; link to `/plans`
+- Authenticated users visiting `/` redirect to their role-based home (`/feed` or `/employer/jobs`)
+
+**Acceptance Criteria**
+- Fully responsive (mobile-first)
+- CTA buttons pre-select the role on the register page via query param
+- Page renders without any API call
+
+**Complexity:** S
+
+---
+
+### Task F8.2 — Not Found & Error Pages
+
+**Description**
+404 and generic error boundary pages.
+
+**Files to create:**
+- `src/pages/NotFoundPage.tsx` — "404 — Page not found" with a "Go Home" button
+- `src/components/ErrorBoundary.tsx` — React class error boundary; catches unhandled render errors; shows "Something went wrong" with a Reload button
+
+**Acceptance Criteria**
+- Any unknown route renders `NotFoundPage`
+- Unhandled React errors caught by `ErrorBoundary` show the error page (not a white screen)
+
+**Complexity:** S
+
+---
+
+## Summary — Frontend
+
+| Epic | Tasks | Total Complexity |
+|------|-------|-----------------|
+| F1. Foundation | 3 tasks | S S M |
+| F2. Authentication | 2 tasks | S S |
+| F3. Profile Management | 3 tasks | M S M |
+| F4. Candidate Experience | 4 tasks | L S S S |
+| F5. Employer Experience | 6 tasks | M S M M S S |
+| F6. Shared Features | 2 tasks | M M |
+| F7. Admin Dashboard | 2 tasks | M S |
+| F8. Public Pages | 2 tasks | S S |
+
+**Total frontend tasks: 24**
+**L tasks: F4.1 (Job Feed / Swipe Page)**
 
 ---
 

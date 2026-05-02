@@ -29,7 +29,31 @@
       "Bash(grep -v \"\\\\$\")",
       "Bash(grep \"\\\\.class$\")",
       "Bash(xargs -I{} sh -c 'jar tf {} 2>/dev/null | grep -q \"DataJpaTest\" && echo {}')",
-      "Bash(grep \".jar$\")"
+      "Bash(grep \".jar$\")",
+      "Bash(npm uninstall *)",
+      "Bash(./mvnw spring-boot:run)",
+      "Bash(pg_isready)",
+      "Bash(docker --version)",
+      "Bash(curl -s -X POST http://localhost:8080/api/v1/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"test@test.com\",\"password\":\"password123\",\"displayName\":\"Test User\",\"role\":\"USER\"}')",
+      "Bash(curl -v -X POST http://localhost:8080/api/v1/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"test@test.com\",\"password\":\"password123\",\"displayName\":\"Test User\",\"role\":\"USER\"}')",
+      "Bash(taskkill /PID 18908 /F)",
+      "PowerShell(Stop-Process -Id 18908 -Force)",
+      "Bash(xargs grep *)",
+      "PowerShell($pid = \\(Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue | Where-Object State -eq 'Listen'\\).OwningProcess; if \\($pid\\) { Stop-Process -Id $pid -Force; \"Killed PID $pid\" } else { \"Port 8080 is free\" })",
+      "PowerShell($proc = \\(Get-NetTCPConnection -LocalPort 8080 -ErrorAction SilentlyContinue | Where-Object State -eq 'Listen'\\).OwningProcess; if \\($proc\\) { Stop-Process -Id $proc -Force; \"Killed PID $proc\" } else { \"Port 8080 is free\" })",
+      "Bash(curl -s -X POST http://localhost:8080/api/v1/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"test@test.com\",\"password\":\"Password1\",\"firstName\":\"Test\",\"lastName\":\"User\",\"role\":\"USER\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"test@test.com\",\"password\":\"Password1\"}')",
+      "Bash(curl -s -X POST http://localhost:8080/api/v1/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"employer@test.com\",\"password\":\"Password1\"}')",
+      "Bash(npx tsc *)",
+      "Bash(curl -s -X POST http://localhost:8080/api/v1/auth/register -H \"Content-Type: application/json\" -d '{\"email\":\"test@test.com\",\"password\":\"Test1234!\",\"firstName\":\"Test\",\"lastName\":\"User\",\"role\":\"USER\"}')",
+      "Bash(redis-cli ping *)",
+      "Bash(ls docker-compose*)",
+      "Bash(ls ../docker-compose*)",
+      "Bash(powershell -Command \"Test-NetConnection -ComputerName localhost -Port 6379 -WarningAction SilentlyContinue | Select-Object TcpTestSucceeded\")",
+      "Bash(curl -s -X POST http://localhost:8080/api/v1/auth/register -H \"Content-Type: application/json\" -d '{\"email\":\"newuser999@test.com\",\"password\":\"Test1234!\",\"firstName\":\"New\",\"lastName\":\"User\",\"role\":\"USER\"}')",
+      "Bash(powershell -Command \"netstat -ano | findstr ':8080'\")",
+      "Bash(docker compose *)",
+      "PowerShell(docker exec jobcupid-kafka kafka-topics --bootstrap-server localhost:9092 --list 2>&1)"
     ]
   }
 }

@@ -1,17 +1,29 @@
 package com.jobcupid.job_cupid.job.service;
 
+import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jobcupid.job_cupid.job.dto.CreateJobRequest;
+import com.jobcupid.job_cupid.job.dto.JobFeedRequest;
+import com.jobcupid.job_cupid.job.dto.JobFeedResponse;
 import com.jobcupid.job_cupid.job.dto.JobResponse;
 import com.jobcupid.job_cupid.job.dto.UpdateJobRequest;
 import com.jobcupid.job_cupid.job.entity.Job;
+import com.jobcupid.job_cupid.job.entity.JobStatus;
+import com.jobcupid.job_cupid.job.repository.FeedCursor;
+import com.jobcupid.job_cupid.job.repository.JobFeedRepository;
 import com.jobcupid.job_cupid.job.repository.JobRepository;
 import com.jobcupid.job_cupid.shared.exception.BusinessRuleException;
 import com.jobcupid.job_cupid.shared.exception.ResourceNotFoundException;
+import com.jobcupid.job_cupid.user.entity.User;
+import com.jobcupid.job_cupid.user.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,11 +31,18 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class JobService {
 
-    private final JobRepository jobRepository;
+    private final JobRepository     jobRepository;
+    private final JobFeedRepository jobFeedRepository;
+    private final UserRepository    userRepository;
 
     @Transactional
     public JobResponse createJob(UUID employerId, CreateJobRequest request) {
         validateSalaryRange(request.getSalaryMin(), request.getSalaryMax());
+
+        User employer = userRepository.findById(employerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Employer not found: " + employerId));
+
+        int boostScore = Boolean.TRUE.equals(employer.getIsPremium()) ? 100 : 0;
 
         Job job = Job.builder()
                 .employerId(employerId)
@@ -38,6 +57,7 @@ public class JobService {
                 .employmentType(request.getEmploymentType())
                 .experienceLevel(request.getExperienceLevel())
                 .requiredSkills(request.getRequiredSkills())
+                .boostScore(boostScore)
                 .expiresAt(request.getExpiresAt())
                 .build();
 
@@ -49,7 +69,7 @@ public class JobService {
         Job job = loadActiveJob(jobId);
 
         if (!job.getEmployerId().equals(employerId)) {
-            throw new BusinessRuleException("You do not own this job posting");
+            throw new AccessDeniedException("You do not own this job posting");
         }
 
         validateSalaryRange(
@@ -58,6 +78,49 @@ public class JobService {
 
         applyJobFields(job, request);
         return JobResponse.from(jobRepository.save(job));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<JobResponse> getMyJobs(UUID employerId, Pageable pageable) {
+        return jobRepository.findByEmployerIdAndDeletedAtIsNull(employerId, pageable)
+                .map(JobResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public JobFeedResponse getJobFeed(UUID candidateId, JobFeedRequest request) {
+        int fetchSize = request.getSize() + 1;
+        List<Job> jobs = jobFeedRepository.findFeed(candidateId, request, fetchSize);
+
+        boolean hasMore = jobs.size() == fetchSize;
+        if (hasMore) jobs = jobs.subList(0, fetchSize - 1);
+
+        List<JobResponse> items = jobs.stream().map(JobResponse::from).toList();
+        String nextCursor = hasMore && !jobs.isEmpty()
+                ? FeedCursor.from(jobs.get(jobs.size() - 1)).encode() : null;
+
+        return JobFeedResponse.builder()
+                .items(items)
+                .nextCursor(nextCursor)
+                .hasMore(hasMore)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public JobResponse getJobById(UUID jobId) {
+        return JobResponse.from(loadActiveJob(jobId));
+    }
+
+    @Transactional
+    public void closeJob(UUID employerId, UUID jobId) {
+        Job job = loadActiveJob(jobId);
+
+        if (!job.getEmployerId().equals(employerId)) {
+            throw new AccessDeniedException("You do not own this job posting");
+        }
+
+        job.setStatus(JobStatus.CLOSED);
+        job.setDeletedAt(OffsetDateTime.now());
+        jobRepository.save(job);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

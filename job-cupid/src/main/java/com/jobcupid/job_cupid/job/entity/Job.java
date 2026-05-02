@@ -63,7 +63,7 @@ public class Job {
     private Integer salaryMax;
 
     @Builder.Default
-    @Column(nullable = false, length = 3)
+    @Column(nullable = false, columnDefinition = "CHAR(3)")
     private String currency = "USD";
 
     @Enumerated(EnumType.STRING)

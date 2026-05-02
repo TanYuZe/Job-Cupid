@@ -35,7 +35,7 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         // Auth endpoints — public
-                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/api/v1/auth/**").permitAll()
                         // Stripe webhook — verified by signature, not JWT
                         .requestMatchers(HttpMethod.POST, "/api/v1/subscriptions/webhook").permitAll()
                         // Public plan listing
