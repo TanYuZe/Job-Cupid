@@ -1,5 +1,7 @@
 package com.jobcupid.job_cupid.swipe.repository;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,11 +11,18 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.jobcupid.job_cupid.swipe.entity.CandidateSwipe;
+import com.jobcupid.job_cupid.swipe.entity.SwipeAction;
 
 @Repository
 public interface CandidateSwipeRepository extends JpaRepository<CandidateSwipe, UUID> {
 
     boolean existsByCandidateIdAndJobId(UUID candidateId, UUID jobId);
+
+    boolean existsByCandidateIdAndJobIdAndAction(UUID candidateId, UUID jobId, SwipeAction action);
+
+    Optional<CandidateSwipe> findByCandidateIdAndJobId(UUID candidateId, UUID jobId);
+
+    List<CandidateSwipe> findByJobIdAndAction(UUID jobId, SwipeAction action);
 
     @Modifying
     @Query(value = """

@@ -5,6 +5,7 @@ import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,7 +13,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.jobcupid.job_cupid.shared.security.UserPrincipal;
-import com.jobcupid.job_cupid.swipe.dto.SwipeRequest;
+import com.jobcupid.job_cupid.swipe.dto.CandidateSwipeRequest;
+import com.jobcupid.job_cupid.swipe.dto.EmployerSwipeRequest;
+import com.jobcupid.job_cupid.swipe.dto.JobLikersResponse;
 import com.jobcupid.job_cupid.swipe.dto.SwipeResponse;
 import com.jobcupid.job_cupid.swipe.service.SwipeService;
 
@@ -31,8 +34,27 @@ public class SwipeController {
     public ResponseEntity<SwipeResponse> swipeJob(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable UUID jobId,
-            @Valid @RequestBody SwipeRequest request) {
-        SwipeResponse response = swipeService.swipeJob(principal.getId(), jobId, request.getAction());
+            @Valid @RequestBody CandidateSwipeRequest request) {
+        SwipeResponse response = swipeService.candidateSwipe(principal.getId(), jobId, request.getAction());
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/applicants/{applicationId}")
+    @Secured("ROLE_EMPLOYER")
+    public ResponseEntity<SwipeResponse> swipeApplicant(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID applicationId,
+            @Valid @RequestBody EmployerSwipeRequest request) {
+        SwipeResponse response = swipeService.employerSwipe(
+                principal.getId(), applicationId, request.getAction());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/jobs/{jobId}/likes")
+    @Secured("ROLE_EMPLOYER")
+    public ResponseEntity<JobLikersResponse> getJobLikers(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable UUID jobId) {
+        return ResponseEntity.ok(swipeService.getJobLikers(principal.getId(), jobId));
     }
 }

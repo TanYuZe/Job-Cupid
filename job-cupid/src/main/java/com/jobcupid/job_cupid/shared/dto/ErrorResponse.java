@@ -18,6 +18,7 @@ public class ErrorResponse {
     private final String message;
     private final String path;
     private final String traceId;
+    private final String upgradeUrl;
 
     // Populated only for validation failures (400)
     private final List<FieldViolation> violations;

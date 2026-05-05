@@ -38,7 +38,6 @@ class S3ServiceTest {
         s3Props = new AwsProperties.S3();
         s3Props.setBucketName("test-bucket");
         when(awsProperties.getS3()).thenReturn(s3Props);
-        when(awsProperties.getRegion()).thenReturn("ap-southeast-1");
     }
 
     @Test
@@ -58,6 +57,7 @@ class S3ServiceTest {
 
     @Test
     void buildPublicUrl_returnsCorrectS3Format() {
+        when(awsProperties.getRegion()).thenReturn("ap-southeast-1");
         String key = "photos/user-id/image.jpg";
 
         String result = s3Service.buildPublicUrl(key);

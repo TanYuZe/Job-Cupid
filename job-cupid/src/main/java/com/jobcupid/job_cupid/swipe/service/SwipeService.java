@@ -1,18 +1,32 @@
 package com.jobcupid.job_cupid.swipe.service;
 
-import java.time.Duration;
-import java.time.LocalDate;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.jobcupid.job_cupid.application.entity.Application;
+import com.jobcupid.job_cupid.application.repository.ApplicationRepository;
+import com.jobcupid.job_cupid.job.entity.Job;
+import com.jobcupid.job_cupid.job.entity.JobStatus;
 import com.jobcupid.job_cupid.job.repository.JobRepository;
+import com.jobcupid.job_cupid.shared.exception.JobNotAvailableException;
+import com.jobcupid.job_cupid.shared.exception.PremiumRequiredException;
 import com.jobcupid.job_cupid.shared.exception.ResourceNotFoundException;
-import com.jobcupid.job_cupid.shared.exception.SwipeLimitExceededException;
+import com.jobcupid.job_cupid.subscription.service.SubscriptionService;
+import com.jobcupid.job_cupid.shared.service.SwipeLimitService;
+import com.jobcupid.job_cupid.swipe.dto.CandidateSummary;
+import com.jobcupid.job_cupid.swipe.dto.JobLikersResponse;
 import com.jobcupid.job_cupid.swipe.dto.SwipeResponse;
+import com.jobcupid.job_cupid.swipe.entity.EmployerSwipeAction;
+import com.jobcupid.job_cupid.swipe.entity.SwipeAction;
+import com.jobcupid.job_cupid.swipe.event.SwipeEvent;
+import com.jobcupid.job_cupid.swipe.event.SwipeEventPublisher;
 import com.jobcupid.job_cupid.swipe.repository.CandidateSwipeRepository;
+import com.jobcupid.job_cupid.swipe.repository.EmployerSwipeRepository;
 import com.jobcupid.job_cupid.user.entity.User;
 import com.jobcupid.job_cupid.user.repository.UserRepository;
 
@@ -22,54 +36,108 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class SwipeService {
 
-    private static final int FREE_DAILY_LIMIT = 20;
-    private static final String SWIPE_COUNT_KEY = "swipe:daily:%s:%s";
-
     private final CandidateSwipeRepository candidateSwipeRepository;
+    private final EmployerSwipeRepository  employerSwipeRepository;
+    private final ApplicationRepository    applicationRepository;
     private final JobRepository            jobRepository;
     private final UserRepository           userRepository;
-    private final StringRedisTemplate      redisTemplate;
+    private final SwipeEventPublisher      swipeEventPublisher;
+    private final SwipeLimitService        swipeLimitService;
+    private final SubscriptionService      subscriptionService;
 
     @Transactional
-    public SwipeResponse swipeJob(UUID candidateId, UUID jobId, String action) {
+    public SwipeResponse candidateSwipe(UUID candidateId, UUID jobId, SwipeAction action) {
         User candidate = userRepository.findById(candidateId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + candidateId));
 
-        jobRepository.findByIdAndDeletedAtIsNull(jobId)
+        Job job = jobRepository.findByIdAndDeletedAtIsNull(jobId)
                 .orElseThrow(() -> new ResourceNotFoundException("Job not found: " + jobId));
+
+        if (job.getStatus() != JobStatus.ACTIVE) {
+            throw new JobNotAvailableException("Job is no longer available");
+        }
 
         boolean isNewSwipe = !candidateSwipeRepository.existsByCandidateIdAndJobId(candidateId, jobId);
 
-        if (isNewSwipe && !Boolean.TRUE.equals(candidate.getIsPremium())) {
-            enforceRateLimit(candidateId);
-        }
-
-        candidateSwipeRepository.upsert(candidateId, jobId, action);
-
         if (isNewSwipe) {
-            incrementDailyCount(candidateId);
+            swipeLimitService.incrementAndCheck(candidateId, Boolean.TRUE.equals(candidate.getIsPremium()));
         }
+
+        candidateSwipeRepository.upsert(candidateId, jobId, action.name());
+
+        swipeEventPublisher.publish(new SwipeEvent(
+                UUID.randomUUID().toString(),
+                candidateId,
+                "CANDIDATE",
+                jobId,
+                "JOB",
+                action.name(),
+                Instant.now()
+        ));
 
         return SwipeResponse.builder()
-                .action(action)
+                .action(action.name())
                 .recorded(true)
                 .build();
     }
 
-    private void enforceRateLimit(UUID candidateId) {
-        String key = String.format(SWIPE_COUNT_KEY, candidateId, LocalDate.now());
-        String raw = redisTemplate.opsForValue().get(key);
-        int count = raw == null ? 0 : Integer.parseInt(raw);
-        if (count >= FREE_DAILY_LIMIT) {
-            throw new SwipeLimitExceededException();
+    @Transactional
+    public SwipeResponse employerSwipe(UUID employerId, UUID applicationId, EmployerSwipeAction action) {
+        Application application = applicationRepository.findById(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Application not found: " + applicationId));
+
+        Job job = jobRepository.findByIdAndDeletedAtIsNull(application.getJobId())
+                .orElseThrow(() -> new ResourceNotFoundException("Job not found: " + application.getJobId()));
+
+        if (!job.getEmployerId().equals(employerId)) {
+            throw new AccessDeniedException("You do not own this job posting");
         }
+
+        employerSwipeRepository.upsert(
+                employerId,
+                applicationId,
+                application.getCandidateId(),
+                application.getJobId(),
+                action.name()
+        );
+
+        swipeEventPublisher.publish(new SwipeEvent(
+                UUID.randomUUID().toString(),
+                employerId,
+                "EMPLOYER",
+                applicationId,
+                "APPLICATION",
+                action.name(),
+                Instant.now()
+        ));
+
+        return SwipeResponse.builder()
+                .action(action.name())
+                .recorded(true)
+                .build();
     }
 
-    private void incrementDailyCount(UUID candidateId) {
-        String key = String.format(SWIPE_COUNT_KEY, candidateId, LocalDate.now());
-        Long newCount = redisTemplate.opsForValue().increment(key);
-        if (newCount != null && newCount == 1L) {
-            redisTemplate.expire(key, Duration.ofHours(25));
+    public JobLikersResponse getJobLikers(UUID employerId, UUID jobId) {
+        if (!subscriptionService.isActive(employerId)) {
+            throw new PremiumRequiredException();
         }
+
+        Job job = jobRepository.findByIdAndDeletedAtIsNull(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException("Job not found: " + jobId));
+
+        if (!job.getEmployerId().equals(employerId)) {
+            throw new AccessDeniedException("You do not own this job posting");
+        }
+
+        List<CandidateSummary> likers = candidateSwipeRepository
+                .findByJobIdAndAction(jobId, SwipeAction.LIKE)
+                .stream()
+                .map(swipe -> CandidateSummary.builder().candidateId(swipe.getCandidateId()).build())
+                .toList();
+
+        return JobLikersResponse.builder()
+                .jobId(jobId)
+                .likers(likers)
+                .build();
     }
 }

@@ -14,9 +14,12 @@ import org.springframework.web.context.request.WebRequest;
 
 import com.jobcupid.job_cupid.shared.dto.ErrorResponse;
 import com.jobcupid.job_cupid.shared.exception.BusinessRuleException;
+import com.jobcupid.job_cupid.shared.exception.DuplicateApplicationException;
 import com.jobcupid.job_cupid.shared.exception.DuplicateEmailException;
 import com.jobcupid.job_cupid.shared.exception.InvalidCredentialsException;
 import com.jobcupid.job_cupid.shared.exception.InvalidTokenException;
+import com.jobcupid.job_cupid.shared.exception.JobNotAvailableException;
+import com.jobcupid.job_cupid.shared.exception.PremiumRequiredException;
 import com.jobcupid.job_cupid.shared.exception.ResourceNotFoundException;
 import com.jobcupid.job_cupid.shared.exception.SwipeLimitExceededException;
 import com.jobcupid.job_cupid.shared.exception.UserBannedException;
@@ -78,6 +81,20 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+    @ExceptionHandler(PremiumRequiredException.class)
+    public ResponseEntity<ErrorResponse> handlePremiumRequired(
+            PremiumRequiredException ex, WebRequest request) {
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
+                ErrorResponse.builder()
+                        .status(403)
+                        .error("Premium Required")
+                        .message(ex.getMessage())
+                        .path(extractPath(request))
+                        .upgradeUrl("/api/v1/subscriptions/plans")
+                        .build());
+    }
+
     // ── 404 Not Found ─────────────────────────────────────────────────────────
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(
@@ -92,10 +109,24 @@ public class GlobalExceptionHandler {
                         .build());
     }
 
+    // ── 410 Gone ──────────────────────────────────────────────────────────────
+    @ExceptionHandler(JobNotAvailableException.class)
+    public ResponseEntity<ErrorResponse> handleGone(
+            JobNotAvailableException ex, WebRequest request) {
+
+        return ResponseEntity.status(HttpStatus.GONE).body(
+                ErrorResponse.builder()
+                        .status(410)
+                        .error("Gone")
+                        .message(ex.getMessage())
+                        .path(extractPath(request))
+                        .build());
+    }
+
     // ── 409 Conflict ─────────────────────────────────────────────────────────
-    @ExceptionHandler(DuplicateEmailException.class)
+    @ExceptionHandler({DuplicateEmailException.class, DuplicateApplicationException.class})
     public ResponseEntity<ErrorResponse> handleConflict(
-            DuplicateEmailException ex, WebRequest request) {
+            RuntimeException ex, WebRequest request) {
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(
                 ErrorResponse.builder()
@@ -131,6 +162,7 @@ public class GlobalExceptionHandler {
                         .error("Rate Limit Exceeded")
                         .message(ex.getMessage())
                         .path(extractPath(request))
+                        .upgradeUrl("/api/v1/subscriptions/plans")
                         .build());
     }
 

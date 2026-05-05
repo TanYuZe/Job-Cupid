@@ -107,6 +107,13 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- Stripe Java SDK -->
+		<dependency>
+			<groupId>com.stripe</groupId>
+			<artifactId>stripe-java</artifactId>
+			<version>25.3.0</version>
+		</dependency>
+
 		<!-- Actuator (health + prometheus endpoints) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -139,6 +146,12 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- @EmbeddedKafka, KafkaTestUtils -->
+		<dependency>
+			<groupId>org.springframework.kafka</groupId>
+			<artifactId>spring-kafka-test</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<!-- Spring Security test helpers: @WithMockUser, SecurityMockMvcRequestPostProcessors -->

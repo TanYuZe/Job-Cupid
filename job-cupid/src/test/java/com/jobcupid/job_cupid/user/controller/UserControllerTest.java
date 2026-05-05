@@ -24,10 +24,14 @@ import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequ
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobcupid.job_cupid.auth.service.TokenService;
 import com.jobcupid.job_cupid.shared.security.CustomUserDetailsService;
-import com.jobcupid.job_cupid.shared.security.JwtAuthenticationFilter;
 import com.jobcupid.job_cupid.shared.security.UserPrincipal;
 import com.jobcupid.job_cupid.user.dto.CandidateProfileResponse;
 import com.jobcupid.job_cupid.user.dto.EmployerProfileResponse;
@@ -42,11 +46,11 @@ import com.jobcupid.job_cupid.user.service.UserService;
 @WebMvcTest(UserController.class)
 class UserControllerTest {
 
-    @Autowired MockMvc     mockMvc;
-    @Autowired ObjectMapper mapper;
+    @Autowired MockMvc mockMvc;
+
+    private final ObjectMapper mapper = new ObjectMapper();
 
     @MockitoBean UserService              userService;
-    @MockitoBean JwtAuthenticationFilter  jwtAuthenticationFilter;
     @MockitoBean CustomUserDetailsService customUserDetailsService;
     @MockitoBean TokenService             tokenService;
 
@@ -195,5 +199,13 @@ class UserControllerTest {
                         .content(mapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.photoUrl").value("https://test-bucket.s3.amazonaws.com/photos/key"));
+    }
+
+    @TestConfiguration
+    static class TestWebMvcConfig implements WebMvcConfigurer {
+        @Override
+        public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
+            resolvers.add(new AuthenticationPrincipalArgumentResolver());
+        }
     }
 }

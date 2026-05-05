@@ -5,6 +5,8 @@ import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -35,8 +37,9 @@ public class CandidateSwipe {
     @Column(name = "job_id", nullable = false)
     private UUID jobId;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
-    private String action;
+    private SwipeAction action;
 
     @Column(name = "swiped_at", nullable = false)
     private OffsetDateTime swipedAt;

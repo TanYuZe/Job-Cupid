@@ -27,6 +27,11 @@ import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequ
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.security.web.method.annotation.AuthenticationPrincipalArgumentResolver;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jobcupid.job_cupid.auth.service.TokenService;
 import com.jobcupid.job_cupid.job.dto.CreateJobRequest;
@@ -35,7 +40,6 @@ import com.jobcupid.job_cupid.job.entity.EmploymentType;
 import com.jobcupid.job_cupid.job.entity.JobStatus;
 import com.jobcupid.job_cupid.job.service.JobService;
 import com.jobcupid.job_cupid.shared.security.CustomUserDetailsService;
-import com.jobcupid.job_cupid.shared.security.JwtAuthenticationFilter;
 import com.jobcupid.job_cupid.shared.security.UserPrincipal;
 import com.jobcupid.job_cupid.user.entity.User;
 import com.jobcupid.job_cupid.user.entity.UserRole;
@@ -43,13 +47,13 @@ import com.jobcupid.job_cupid.user.entity.UserRole;
 @WebMvcTest(JobController.class)
 class JobControllerTest {
 
-    @Autowired MockMvc      mockMvc;
-    @Autowired ObjectMapper mapper;
+    @Autowired MockMvc mockMvc;
 
-    @MockitoBean JobService              jobService;
-    @MockitoBean JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ObjectMapper mapper = new ObjectMapper();
+
+    @MockitoBean JobService               jobService;
     @MockitoBean CustomUserDetailsService customUserDetailsService;
-    @MockitoBean TokenService            tokenService;
+    @MockitoBean TokenService             tokenService;
 
     private UUID                              employerId;
     private UUID                              candidateId;
@@ -207,5 +211,13 @@ class JobControllerTest {
                 .isRemote(false)
                 .currency("USD")
                 .build();
+    }
+
+    @TestConfiguration
+    static class TestWebMvcConfig implements WebMvcConfigurer {
+        @Override
+        public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
+            resolvers.add(new AuthenticationPrincipalArgumentResolver());
+        }
     }
 }
